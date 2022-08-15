@@ -10,3 +10,19 @@ fn challenge1() -> Result<()> {
     assert_eq!(from_hex(input)?.to_base64(), output);
     Ok(())
 }
+
+#[test]
+fn challenge2() -> Result<()> {
+    let a = "1c0111001f010100061a024b53535009181c";
+    let b = "686974207468652062756c6c277320657965";
+
+    let a = from_hex(a)?;
+    let b = from_hex(b)?;
+
+    assert_eq!(
+        xor::xor(&a, &b).to_hex(),
+        "746865206b696420646f6e277420706c6179"
+    );
+
+    Ok(())
+}
