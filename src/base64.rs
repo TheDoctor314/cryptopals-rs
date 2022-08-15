@@ -46,8 +46,6 @@ fn encode_to_slice(input: &[u8], output: &mut [u8]) -> usize {
         let input_chunk = &input[input_idx..(input_idx + 3)];
         let output_chunk = &mut output[output_idx..(output_idx + 4)];
 
-        dbg!(input_chunk);
-
         output_chunk[0] = table[(input_chunk[0] >> 2) as usize];
         output_chunk[1] =
             table[((input_chunk[0] << 4 | input_chunk[1] >> 4) & LOW_SIX_BITS) as usize];
