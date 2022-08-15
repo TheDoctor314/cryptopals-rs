@@ -26,3 +26,20 @@ fn challenge2() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn challenge3() -> Result<()> {
+    use xor::break_single_byte_xor;
+    let input = "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736";
+    let input = from_hex(input)?;
+
+    let (key, output) = break_single_byte_xor(&input, xor::metrics::score_by_character_freq);
+    let output = String::from_utf8(output)?;
+
+    println!("key:{key:#x} '{}', output: {output}", key.escape_ascii());
+
+    // we know this is the answer after solving it
+    assert_eq!(output, "Cooking MC's like a pound of bacon");
+
+    Ok(())
+}
