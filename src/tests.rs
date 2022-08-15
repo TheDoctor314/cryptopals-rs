@@ -32,3 +32,18 @@ mod base64 {
         assert_eq!(to_base64(input), "TWFueSBoYW5kcyBtYWtlIGxpZ2h0IHdvcmsu");
     }
 }
+
+mod hex {
+    use crate::hex::*;
+
+    #[test]
+    fn test_from_hex() {
+        assert_eq!(from_hex("6465616462656566").unwrap(), "deadbeef".as_bytes())
+    }
+
+    #[test]
+    fn test_to_hex() {
+        assert_eq!([0xde, 0xad, 0xbe, 0xef].to_hex(), "deadbeef");
+        assert_eq!(b"deadbeef".to_hex(), "6465616462656566")
+    }
+}
