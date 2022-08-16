@@ -1,3 +1,7 @@
+pub fn hamming_distance(a: &[u8], b: &[u8]) -> u32 {
+    xor(a, b).into_iter().map(|b| b.count_ones()).sum()
+}
+
 /// Returns the bytewise xor of the two buffers.
 ///
 /// If `b.len() < a.len()` then `b` is repeated to compute the xor.

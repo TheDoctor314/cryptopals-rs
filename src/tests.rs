@@ -1,3 +1,5 @@
+use crate::xor::hamming_distance;
+
 mod base64 {
     use crate::base64::*;
 
@@ -46,4 +48,12 @@ mod hex {
         assert_eq!([0xde, 0xad, 0xbe, 0xef].to_hex(), "deadbeef");
         assert_eq!(b"deadbeef".to_hex(), "6465616462656566")
     }
+}
+
+#[test]
+fn test_hamming_distance() {
+    let a = b"this is a test";
+    let b = b"wokka wokka!!!";
+
+    assert_eq!(hamming_distance(a, b), 37);
 }
