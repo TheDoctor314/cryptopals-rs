@@ -1,3 +1,8 @@
+use std::{
+    fs::File,
+    io::{BufRead, BufReader},
+};
+
 use anyhow::Result;
 
 use cryptopals_rs::*;
@@ -40,6 +45,29 @@ fn challenge3() -> Result<()> {
 
     // we know this is the answer after solving it
     assert_eq!(output, "Cooking MC's like a pound of bacon");
+
+    Ok(())
+}
+
+#[test]
+fn challenge4() -> Result<()> {
+    let reader = BufReader::new(File::open("data/4.txt")?);
+
+    // We just iterate over all the lines and ask for the output after xor with possible keys.
+    // The output with the lowest score is the line encrypted with single key xor.
+    let output = reader
+        .lines()
+        .filter_map(|line| from_hex(&line.unwrap()).ok())
+        .flat_map(|line| (0..128).map(move |key| xor::repeating_xor(&line, &[key])))
+        .min_by_key(|line| xor::metrics::score_by_character_freq(line))
+        .unwrap();
+
+    let output = String::from_utf8(output)?;
+
+    println!("Output: {output}");
+
+    // we know this is the answer after solving it
+    assert_eq!(output, "Now that the party is jumping\n");
 
     Ok(())
 }
