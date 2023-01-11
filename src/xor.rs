@@ -52,46 +52,45 @@ pub fn xor_in_place(a: &mut [u8], b: &[u8]) {
 }
 
 // source: https://www.cl.cam.ac.uk/~mgk25/lee-essays.pdf pg. 181
-const CHAR_FREQ: [(u8, u32); 28] = [
-    (b'a', 609),
-    (b'b', 105),
-    (b'c', 284),
-    (b'd', 292),
-    (b'e', 1136),
-    (b'f', 179),
-    (b'g', 138),
-    (b'h', 341),
-    (b'i', 544),
-    (b'j', 24),
-    (b'k', 41),
-    (b'l', 292),
-    (b'm', 276),
-    (b'n', 544),
-    (b'o', 600),
-    (b'p', 195),
-    (b'q', 24),
-    (b'r', 495),
-    (b's', 568),
-    (b't', 803),
-    (b'u', 243),
-    (b'v', 97),
-    (b'w', 138),
-    (b'x', 24),
-    (b'y', 130),
-    (b'z', 3),
-    (b' ', 1217), // whitespace
-    (b'.', 657),  // others
+const CHAR_FREQ: [(u8, f64); 28] = [
+    (b'a', 6.09),
+    (b'b', 1.05),
+    (b'c', 2.84),
+    (b'd', 2.92),
+    (b'e', 11.36),
+    (b'f', 1.79),
+    (b'g', 1.38),
+    (b'h', 3.41),
+    (b'i', 5.44),
+    (b'j', 0.24),
+    (b'k', 0.41),
+    (b'l', 2.92),
+    (b'm', 2.76),
+    (b'n', 5.44),
+    (b'o', 6.00),
+    (b'p', 1.95),
+    (b'q', 0.24),
+    (b'r', 4.95),
+    (b's', 5.68),
+    (b't', 8.03),
+    (b'u', 2.43),
+    (b'v', 0.97),
+    (b'w', 1.38),
+    (b'x', 0.24),
+    (b'y', 1.30),
+    (b'z', 0.03),
+    (b' ', 12.17), // whitespace
+    (b'\n', 6.57), // others
 ];
 
 pub mod metrics {
     use std::collections::HashMap;
 
     pub fn score_by_character_freq(input: &[u8]) -> u64 {
-        if !input.is_ascii() {
-            return u64::MAX;
-        }
-
-        if input.iter().any(|&b| b.is_ascii_control() && b != b'\n') {
+        if input
+            .iter()
+            .any(|&b| !b.is_ascii() || (b.is_ascii_control() && b != b'\n'))
+        {
             return u64::MAX;
         }
 
@@ -108,7 +107,7 @@ pub mod metrics {
                 } else if b.is_ascii_whitespace() {
                     b' '
                 } else {
-                    b'.'
+                    b'\0'
                 };
 
                 *map.entry(ch).or_default() += 1;
@@ -117,14 +116,13 @@ pub mod metrics {
             map
         };
 
-        let len = input.len();
+        let len = input.len() as f64;
 
-        super::CHAR_FREQ.iter().fold(0, |acc, &(b, score)| {
-            let expected = score as u64 * len as u64;
-            let actual = freq.get(&b).copied().unwrap_or_default();
-
-            acc + (expected - actual as u64).pow(2)
-        })
+        super::CHAR_FREQ.iter().fold(0f64, |acc, &(b, score)| {
+            let expected_count = score / 100f64 * len;
+            let actual_count = freq.get(&b).copied().unwrap_or_default() as f64;
+            acc + (expected_count - actual_count).powi(2)
+        }) as u64
     }
 
     pub fn count_spaces(input: &[u8]) -> u64 {
@@ -132,12 +130,90 @@ pub mod metrics {
     }
 }
 
-pub fn break_single_byte_xor<F>(input: &[u8], score_by: F) -> (u8, Vec<u8>)
+pub struct DecodeSingleByteXorResult {
+    pub key: u8,
+    pub plaintext: Vec<u8>,
+}
+
+pub fn break_single_byte_xor<F>(input: &[u8], score_by: F) -> DecodeSingleByteXorResult
 where
     F: Fn(&[u8]) -> u64,
 {
-    (0..u8::MAX)
+    let (key, plaintext) = (0..u8::MAX)
         .map(|key| (key, repeating_xor(input, &[key])))
         .min_by_key(|(_, buf)| score_by(buf))
-        .expect("Cannot be empty")
+        .expect("Cannot be empty");
+
+    DecodeSingleByteXorResult { key, plaintext }
+}
+
+#[derive(Debug)]
+pub struct DecodeRepeatingKeyXorResult {
+    pub key: Vec<u8>,
+    pub plaintext: Vec<u8>,
+}
+
+pub fn break_repeating_key_xor(input: &[u8]) -> DecodeRepeatingKeyXorResult {
+    let key = get_possible_keysizes(input)
+        .into_iter()
+        .map(|keysize| break_repeating_key_xor_for_keysize(input, keysize))
+        .min_by_key(|key| metrics::score_by_character_freq(&repeating_xor(input, key)))
+        .expect("Should have found a key");
+
+    let plaintext = repeating_xor(input, &key);
+
+    DecodeRepeatingKeyXorResult { key, plaintext }
+}
+
+/// Returns the possible key for the given key length.
+fn break_repeating_key_xor_for_keysize(input: &[u8], key_len: usize) -> Vec<u8> {
+    get_group_by_keylen(input, key_len)
+        .into_iter()
+        .map(|block| break_single_byte_xor(&block, metrics::score_by_character_freq).key)
+        .collect()
+}
+
+/// Returns the top 5 keysizes
+fn get_possible_keysizes(input: &[u8]) -> Vec<usize> {
+    let count = 5;
+    let mut candidates: Vec<(usize, u32)> = (2..=40)
+        .map(|keysize| {
+            let mut distance = 0f32;
+
+            let chunks = input.chunks_exact(keysize);
+            let mut chunks_next = chunks.clone();
+            chunks_next.next();
+
+            for (a, b) in chunks.zip(chunks_next).take(4) {
+                distance += hamming_distance(a, b) as f32;
+            }
+
+            let distance = (distance / keysize as f32) as u32;
+            (keysize, distance)
+        })
+        .collect();
+
+    candidates.sort_by_key(|&(_, x)| x);
+
+    candidates
+        .into_iter()
+        .take(count)
+        .map(|(keysize, _)| keysize)
+        .collect()
+}
+
+fn get_group_by_keylen(input: &[u8], key_len: usize) -> Vec<Vec<u8>> {
+    let mut chunks = vec![Vec::new(); key_len];
+
+    let mut i = 0;
+    for &byte in input {
+        if i == key_len {
+            i = 0;
+        }
+
+        chunks[i].push(byte);
+        i += 1;
+    }
+
+    chunks
 }

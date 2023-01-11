@@ -38,8 +38,9 @@ fn challenge3() -> Result<()> {
     let input = "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736";
     let input = from_hex(input)?;
 
-    let (key, output) = break_single_byte_xor(&input, xor::metrics::score_by_character_freq);
-    let output = String::from_utf8(output)?;
+    let xor::DecodeSingleByteXorResult { key, plaintext } =
+        break_single_byte_xor(&input, xor::metrics::score_by_character_freq);
+    let output = String::from_utf8(plaintext)?;
 
     println!("key:{key:#x} '{}', output: {output}", key.escape_ascii());
 
@@ -51,7 +52,7 @@ fn challenge3() -> Result<()> {
 
 #[test]
 fn challenge4() -> Result<()> {
-    let reader = BufReader::new(File::open("data/4.txt")?);
+    let reader = BufReader::new(File::open("testdata/set1/4.txt")?);
 
     // We just iterate over all the lines and ask for the output after xor with possible keys.
     // The output with the lowest score is the line encrypted with single key xor.
@@ -81,5 +82,17 @@ I go crazy when I hear a cymbal"#;
     let output = "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f";
 
     assert_eq!(xor::repeating_xor(input.as_bytes(), key), from_hex(output)?);
+    Ok(())
+}
+
+#[test]
+fn challenge6() -> Result<()> {
+    let input = base64::from_base64_file("testdata/set1/6.txt")?;
+    let xor::DecodeRepeatingKeyXorResult { key, plaintext } = xor::break_repeating_key_xor(&input);
+    let output = String::from_utf8(plaintext)?;
+
+    println!("key:{key:#?} '{}', output: {output}", key.escape_ascii());
+    assert_eq!(key, b"Terminator X: Bring the noise");
+
     Ok(())
 }
