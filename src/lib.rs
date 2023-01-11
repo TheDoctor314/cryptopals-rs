@@ -7,3 +7,11 @@ pub use hex::{from_hex, ToHex};
 
 #[cfg(test)]
 mod tests;
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Invalid base64")]
+    Base64Error(#[from] ::base64::DecodeError),
+    #[error("IO error")]
+    IoError(#[from] std::io::Error),
+}
