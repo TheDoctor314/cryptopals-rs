@@ -4,6 +4,7 @@ use std::{
 };
 
 use anyhow::Result;
+use expect_test::{expect, expect_file};
 
 use cryptopals_rs::*;
 
@@ -38,14 +39,12 @@ fn challenge3() -> Result<()> {
     let input = "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736";
     let input = from_hex(input)?;
 
-    let xor::DecodeSingleByteXorResult { key, plaintext } =
+    let xor::DecodeSingleByteXorResult { key: _, plaintext } =
         break_single_byte_xor(&input, xor::metrics::score_by_character_freq);
-    let output = String::from_utf8(plaintext)?;
-
-    println!("key:{key:#x} '{}', output: {output}", key.escape_ascii());
+    let output = std::str::from_utf8(&plaintext)?;
 
     // we know this is the answer after solving it
-    assert_eq!(output, "Cooking MC's like a pound of bacon");
+    expect!["Cooking MC's like a pound of bacon"].assert_eq(output);
 
     Ok(())
 }
@@ -63,12 +62,12 @@ fn challenge4() -> Result<()> {
         .min_by_key(|line| xor::metrics::score_by_character_freq(line))
         .unwrap();
 
-    let output = String::from_utf8(output)?;
+    let output = std::str::from_utf8(&output)?;
 
     println!("Output: {output}");
 
     // we know this is the answer after solving it
-    assert_eq!(output, "Now that the party is jumping\n");
+    expect!["Now that the party is jumping\n"].assert_eq(output);
 
     Ok(())
 }
@@ -89,10 +88,26 @@ I go crazy when I hear a cymbal"#;
 fn challenge6() -> Result<()> {
     let input = base64::from_base64_file("testdata/set1/6.txt")?;
     let xor::DecodeRepeatingKeyXorResult { key, plaintext } = xor::break_repeating_key_xor(&input);
-    let output = String::from_utf8(plaintext)?;
+    let output = std::str::from_utf8(&plaintext)?;
 
-    println!("key:{key:#?} '{}', output: {output}", key.escape_ascii());
-    assert_eq!(key, b"Terminator X: Bring the noise");
+    let key = std::str::from_utf8(&key)?;
+    expect!["Terminator X: Bring the noise"].assert_eq(key);
+    expect_file!["../testdata/set1/6.out.txt"].assert_eq(output);
+
+    Ok(())
+}
+
+#[test]
+fn challenge7() -> Result<()> {
+    let input = base64::from_base64_file("testdata/set1/7.txt")?;
+    let key = b"YELLOW SUBMARINE";
+
+    let cipher = aes::Aes128::new(key);
+    let mut output = vec![0u8; input.len()];
+    cipher.decrypt(&input, &mut output);
+
+    let plaintext = std::str::from_utf8(&output)?;
+    expect_file!["../testdata/set1/7.out.txt"].assert_eq(plaintext);
 
     Ok(())
 }

@@ -11,3 +11,4 @@ thiserror = "1.0.38"
 
 [dev-dependencies]
 anyhow = "1.0.61"
+expect-test = "1.4.0"
