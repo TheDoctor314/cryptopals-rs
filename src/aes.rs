@@ -1,3 +1,22 @@
+pub fn pad(block: &[u8], required_block_size: usize) -> Vec<u8> {
+    let mut res = block.to_vec();
+    pad_in_place(&mut res, required_block_size);
+
+    res
+}
+
+pub fn pad_in_place(block: &mut Vec<u8>, required_block_size: usize) {
+    let len = block.len();
+    let padding = required_block_size - (len % required_block_size);
+    let new_len = if padding == 0 {
+        len + required_block_size
+    } else {
+        len + padding
+    };
+
+    block.resize(new_len, padding as u8);
+}
+
 pub struct Aes128 {
     round_keys: [u32; NB * (NR + 1)],
 }
