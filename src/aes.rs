@@ -17,35 +17,20 @@ pub fn pad_in_place(block: &mut Vec<u8>, required_block_size: usize) {
     block.resize(new_len, padding as u8);
 }
 
-pub struct Aes128 {
+pub type Aes128ECB = Aes128<ECB>;
+pub type Aes128CBC = Aes128<CBC>;
+
+pub struct Aes128<MODE> {
     round_keys: [u32; NB * (NR + 1)],
+    _marker: std::marker::PhantomData<MODE>,
 }
 
-impl Aes128 {
+impl<MODE> Aes128<MODE> {
     pub fn new(key: &[u8]) -> Self {
         let round_keys = create_round_keys(key);
-        Self { round_keys }
-    }
-
-    pub fn decrypt(&self, input: &[u8], output: &mut [u8]) {
-        assert_eq!(
-            input.len(),
-            output.len(),
-            "input and output buffers must have the same length"
-        );
-        assert_eq!(
-            input.len() % (NB * NK),
-            0,
-            "buffer length must be a multiple of sixteen bytes"
-        );
-
-        let mut state = [0u8; 16];
-
-        for (in_block, out_block) in input
-            .chunks_exact(NB * NK)
-            .zip(output.chunks_exact_mut(NB * NK))
-        {
-            self.decrypt_block(in_block, out_block, &mut state);
+        Self {
+            round_keys,
+            _marker: std::marker::PhantomData,
         }
     }
 
@@ -72,6 +57,60 @@ impl Aes128 {
         add_round_key(state, self.round_keys[0..NB].try_into().unwrap());
 
         output.copy_from_slice(state)
+    }
+}
+
+pub struct ECB;
+pub struct CBC;
+
+impl Aes128<ECB> {
+    pub fn decrypt(&self, input: &[u8], output: &mut [u8]) {
+        assert_eq!(
+            input.len(),
+            output.len(),
+            "input and output buffers must have the same length"
+        );
+        assert_eq!(
+            input.len() % (NB * NK),
+            0,
+            "buffer length must be a multiple of sixteen bytes"
+        );
+
+        let mut state = [0u8; 16];
+
+        for (in_block, out_block) in input
+            .chunks_exact(NB * NK)
+            .zip(output.chunks_exact_mut(NB * NK))
+        {
+            self.decrypt_block(in_block, out_block, &mut state);
+        }
+    }
+}
+
+impl Aes128<CBC> {
+    pub fn decrypt(&self, input: &[u8], output: &mut [u8], iv: &[u8; 16]) {
+        assert_eq!(
+            input.len(),
+            output.len(),
+            "input and output buffers must have the same length"
+        );
+        assert_eq!(
+            input.len() % (NB * NK),
+            0,
+            "buffer length must be a multiple of sixteen bytes"
+        );
+
+        let mut state = [0u8; 16];
+        let mut prev = iv as &[u8];
+
+        for (in_block, out_block) in input
+            .chunks_exact(NB * NK)
+            .zip(output.chunks_exact_mut(NB * NK))
+        {
+            self.decrypt_block(in_block, out_block, &mut state);
+            crate::xor::xor_in_place(out_block, prev);
+            prev = in_block;
+        }
     }
 }
 

@@ -102,7 +102,7 @@ fn challenge7() -> Result<()> {
     let input = base64::from_base64_file("testdata/set1/7.txt")?;
     let key = b"YELLOW SUBMARINE";
 
-    let cipher = aes::Aes128::new(key);
+    let cipher = aes::Aes128ECB::new(key);
     let mut output = vec![0u8; input.len()];
     cipher.decrypt(&input, &mut output);
 
