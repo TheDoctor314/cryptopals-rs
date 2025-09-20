@@ -24,7 +24,10 @@ fn test_hamming_distance() {
 }
 
 mod aes {
-    use crate::aes;
+    use crate::{aes, base64::from_base64, Base64};
+    const KEY: &[u8; 16] = b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f";
+    const PLAIN: &[u8; 16] = b"\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xaa\xbb\xcc\xdd\xee\xff";
+    const CIPHER: &[u8; 16] = b"\x69\xc4\xe0\xd8\x6a\x7b\x04\x30\xd8\xcd\xb7\x80\x70\xb4\xc5\x5a";
 
     #[test]
     fn test_xtime() {
@@ -146,5 +149,56 @@ mod aes {
         let actual = aes::create_round_keys(&key);
 
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_encrypt_block() {
+        let cipher = aes::Aes128ECB::new(KEY);
+        let mut output = vec![0u8; CIPHER.len()];
+        cipher.encrypt(PLAIN, &mut output);
+
+        assert_eq!(&output, CIPHER);
+    }
+
+    #[test]
+    fn test_decrypt_block() {
+        let cipher = aes::Aes128ECB::new(KEY);
+        let mut output = vec![0u8; CIPHER.len()];
+        cipher.decrypt(CIPHER, &mut output);
+
+        assert_eq!(&output, PLAIN);
+    }
+
+    use anyhow::Result;
+    #[test]
+    fn test_cbc_encrypt() -> Result<()> {
+        let plaintext = b"YELLOW SUBMARINEYELLOW SUBMARINEYELLOW SUBMARINEYELLOW SUBMARINE";
+        let key = b"YELLOW SUBMARINE";
+
+        let cipher = aes::Aes128CBC::new(key);
+        let mut output = vec![0u8; plaintext.len()];
+        cipher.encrypt(plaintext, &mut output, *key);
+
+        let expected_cipher = "dtHLS6+iRuLjrwNdbBPDctTfTe4kqljmNVSzVoBDL9oj5/DXE4QVZrjXTL3oHbiu1AOyUyCu75ZxZ70pWO7WPA==";
+        assert_eq!(expected_cipher, output.to_base64());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_cbc_decrypt() -> Result<()> {
+        let plaintext = "YELLOW SUBMARINEYELLOW SUBMARINEYELLOW SUBMARINEYELLOW SUBMARINE";
+        let ciphertext = "dtHLS6+iRuLjrwNdbBPDctTfTe4kqljmNVSzVoBDL9oj5/DXE4QVZrjXTL3oHbiu1AOyUyCu75ZxZ70pWO7WPA==";
+        let key = b"YELLOW SUBMARINE";
+
+        let cipher = aes::Aes128CBC::new(key);
+        let input = from_base64(ciphertext)?;
+        let mut output = vec![0u8; input.len()];
+        cipher.decrypt(&input, &mut output, key);
+
+        dbg!(&output);
+        assert_eq!(plaintext, str::from_utf8(&output)?);
+
+        Ok(())
     }
 }

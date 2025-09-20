@@ -58,6 +58,31 @@ impl<MODE> Aes128<MODE> {
 
         output.copy_from_slice(state)
     }
+
+    fn encrypt_block(&self, input: &[u8], output: &mut [u8], state: &mut [u8; 16]) {
+        state.copy_from_slice(input);
+
+        add_round_key(state, self.round_keys[0..NB].try_into().unwrap());
+
+        for round_key in self
+            .round_keys
+            .chunks_exact(NB)
+            .skip(1) // already added one rk
+            .take(9) // add rk at end
+            .map(|rk| TryInto::<&[u32; NB]>::try_into(rk).unwrap())
+        {
+            sub_bytes(state);
+            shift_rows(state);
+            mix_cols(state);
+            add_round_key(state, round_key);
+        }
+
+        sub_bytes(state);
+        shift_rows(state);
+        add_round_key(state, self.round_keys[NR * NB..].try_into().unwrap());
+
+        output.copy_from_slice(state)
+    }
 }
 
 pub struct ECB;
@@ -85,6 +110,28 @@ impl Aes128<ECB> {
             self.decrypt_block(in_block, out_block, &mut state);
         }
     }
+
+    pub fn encrypt(&self, input: &[u8], output: &mut [u8]) {
+        assert_eq!(
+            input.len(),
+            output.len(),
+            "input and output buffers must have the same length"
+        );
+        assert_eq!(
+            input.len() % (NB * NK),
+            0,
+            "buffer length must be a multiple of sixteen bytes"
+        );
+
+        let mut state = [0u8; 16];
+
+        for (in_block, out_block) in input
+            .chunks_exact(NB * NK)
+            .zip(output.chunks_exact_mut(NB * NK))
+        {
+            self.encrypt_block(in_block, out_block, &mut state);
+        }
+    }
 }
 
 impl Aes128<CBC> {
@@ -110,6 +157,32 @@ impl Aes128<CBC> {
             self.decrypt_block(in_block, out_block, &mut state);
             crate::xor::xor_in_place(out_block, prev);
             prev = in_block;
+        }
+    }
+
+    pub fn encrypt(&self, input: &[u8], output: &mut [u8], iv: [u8; NB * NK]) {
+        assert_eq!(
+            input.len(),
+            output.len(),
+            "input and output buffers must have the same length"
+        );
+        assert_eq!(
+            input.len() % (NB * NK),
+            0,
+            "buffer length must be a multiple of sixteen bytes"
+        );
+
+        let mut state = [0u8; 16];
+        let mut temp = iv.to_owned();
+        let prev = &mut temp;
+
+        for (in_block, out_block) in input
+            .chunks_exact(NB * NK)
+            .zip(output.chunks_exact_mut(NB * NK))
+        {
+            crate::xor::xor_in_place(prev, in_block);
+            self.encrypt_block(prev, out_block, &mut state);
+            prev.copy_from_slice(out_block);
         }
     }
 }
