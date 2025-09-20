@@ -121,6 +121,14 @@ fn add_round_key(state: &mut [u8; 16], round_key: &[u32; NB]) {
     }
 }
 
+fn mix_cols(state: &mut [u8; 16]) {
+    for chunk in state.chunks_exact_mut(4) {
+        let word = u32::from_le_bytes(chunk.try_into().unwrap());
+        let word = mix_word(word);
+        chunk.copy_from_slice(&word.to_le_bytes());
+    }
+}
+
 fn inv_mix_cols(state: &mut [u8; 16]) {
     for chunk in state.chunks_exact_mut(4) {
         let word = u32::from_le_bytes(chunk.try_into().unwrap());
@@ -129,7 +137,20 @@ fn inv_mix_cols(state: &mut [u8; 16]) {
     }
 }
 
-fn inv_shift_rows(state: &mut [u8; 16]) {
+pub(crate) fn shift_rows(state: &mut [u8; 16]) {
+    for r in 0..4 {
+        let mut temp = [0; 4];
+        for c in 0..4 {
+            temp[c] = state[4 * c + r];
+        }
+
+        for c in 0..4 {
+            state[4 * c + r] = temp[(r + c) % 4];
+        }
+    }
+}
+
+pub(crate) fn inv_shift_rows(state: &mut [u8; 16]) {
     for r in 0..4 {
         let mut temp = [0; 4];
         for c in 0..4 {
@@ -139,6 +160,12 @@ fn inv_shift_rows(state: &mut [u8; 16]) {
         for c in 0..4 {
             state[4 * c + r] = temp[(4 + c - r) % 4];
         }
+    }
+}
+
+fn sub_bytes(state: &mut [u8; 16]) {
+    for b in state {
+        *b = SBOX[*b as usize];
     }
 }
 
@@ -183,6 +210,14 @@ pub(crate) fn create_round_keys(key: &[u8]) -> [u32; NB * (NR + 1)] {
 
 pub(crate) fn sub_word(w: u32) -> u32 {
     u32::from_le_bytes(w.to_le_bytes().map(|b| SBOX[b as usize]))
+}
+
+pub(crate) fn mix_word(w: u32) -> u32 {
+    let f1 = w;
+    let f2 = xtime(w);
+    let f3 = w ^ f2;
+
+    f2 ^ f3.rotate_right(8) ^ f1.rotate_right(16) ^ f1.rotate_right(24)
 }
 
 pub(crate) fn inv_mix_word(w: u32) -> u32 {
