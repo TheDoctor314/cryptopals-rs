@@ -17,6 +17,14 @@ pub fn pad_in_place(block: &mut Vec<u8>, required_block_size: usize) {
     block.resize(new_len, padding as u8);
 }
 
+pub fn unpad(_block: &[u8]) -> Vec<u8> {
+    unimplemented!()
+}
+
+pub fn unpad_in_place(_block: &mut [u8]) {
+    unimplemented!()
+}
+
 pub type Aes128ECB = Aes128<ECB>;
 pub type Aes128CBC = Aes128<CBC>;
 
